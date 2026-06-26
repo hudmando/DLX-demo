@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+    <title>DLX Field Planner</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #eef1f4;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+      #app { position: fixed; inset: 0; }
+      canvas { display: block; }
+      #hint { position: fixed; right: 14px; bottom: 16px; z-index: 10; font-size: 10px;
+        letter-spacing: 0.05em; color: #9aa3b0; opacity: 0.7; pointer-events: none; }
+      #bill { position: fixed; left: 14px; top: 14px; z-index: 10; font-size: 11px; line-height: 1.7;
+        letter-spacing: 0.04em; color: #3a4150; background: rgba(255, 255, 255, 0.78);
+        backdrop-filter: blur(4px); border-left: 2px solid #e5661a; padding: 9px 13px;
+        border-radius: 3px; opacity: 0; transition: opacity 0.4s; pointer-events: none; }
+      #bill b { color: #1c2230; font-weight: 600; }
+      #bill .sub { color: #7a8290; font-size: 10px; margin: 2px 0 5px; }
+      #bill .est { color: #e5661a; font-weight: 600; }
+      #inspector { position: fixed; right: 14px; top: 14px; z-index: 10; min-width: 168px;
+        font-size: 11px; line-height: 1.7; letter-spacing: 0.04em; color: #3a4150;
+        background: rgba(255, 255, 255, 0.82); backdrop-filter: blur(4px);
+        border-right: 2px solid #e5661a; padding: 9px 13px; border-radius: 3px;
+        opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+      #inspector b { color: #1c2230; font-weight: 600; }
+      #inspector .sub { color: #7a8290; font-size: 10px; margin: 2px 0 6px;
+        text-transform: uppercase; letter-spacing: 0.08em; }
+      #inspector .row { display: flex; justify-content: space-between; gap: 16px; }
+      #inspector .row span { color: #7a8290; }
+      #inspector .conf { margin-top: 6px; font-size: 10px; }
+      #inspector .ok { color: #2e9e5b; font-weight: 600; }
+      #inspector .est { color: #e5661a; font-weight: 600; }
+      .dimlabel { position: fixed; z-index: 9; transform: translate(-50%, -50%);
+        pointer-events: none; font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+        color: #1c2230; background: rgba(255, 255, 255, 0.85); border: 1px solid #2faa57;
+        border-radius: 2px; padding: 1px 4px; white-space: nowrap; }
+      /* bold black overall-camp dimension labels (plan view) */
+      .campdimlabel { position: fixed; z-index: 9; transform: translate(-50%, -50%);
+        pointer-events: none; font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+        color: #fff; background: rgba(20, 24, 31, 0.92); border-radius: 2px;
+        padding: 2px 7px; white-space: nowrap; }
+      /* equipment tally (mirrors #bill, right side under the inspector) */
+      #equipment { position: fixed; right: 14px; top: 50%; z-index: 10; font-size: 11px;
+        line-height: 1.7; letter-spacing: 0.04em; color: #3a4150;
+        background: rgba(255, 255, 255, 0.78); backdrop-filter: blur(4px);
+        border-right: 2px solid #2a2c2f; padding: 9px 13px; border-radius: 3px;
+        opacity: 0; transition: opacity 0.4s; pointer-events: none; }
+      #equipment b { color: #1c2230; font-weight: 600; }
+      #equipment .sub { color: #7a8290; font-size: 10px; margin: 2px 0 5px; }
+      #inspector .removebtn { margin-top: 8px; width: 100%; appearance: none; cursor: pointer;
+        font: inherit; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+        color: #c0392b; background: rgba(192, 57, 43, 0.08); border: 1px solid #c0392b;
+        border-radius: 3px; padding: 5px 8px; }
+      #inspector .removebtn:hover { background: #c0392b; color: #fff; }
+      /* The black "+" add affordance (central start marker + per-slot markers) */
+      #addplus { position: fixed; z-index: 11; transform: translate(-50%, -50%); cursor: pointer;
+        width: 30px; height: 30px; display: none; box-sizing: border-box;
+        border: 1.5px solid #14181f; border-radius: 4px; color: #14181f;
+        font-size: 20px; line-height: 26px; text-align: center; font-weight: 400;
+        background: rgba(255, 255, 255, 0.45); opacity: 0.5; transition: opacity 0.15s, background 0.15s; }
+      #addplus:hover { opacity: 1; background: rgba(255, 255, 255, 0.92); }
+      /* persistent side "+" markers (equipment hangs off tent sides, one per 6 ft) */
+      .sideplus { position: fixed; z-index: 11; transform: translate(-50%, -50%); cursor: pointer;
+        width: 20px; height: 20px; display: none; box-sizing: border-box;
+        border: 1.5px solid #6b7280; border-radius: 50%; color: #3a4150;
+        font-size: 14px; line-height: 16px; text-align: center; font-weight: 400;
+        background: rgba(255, 255, 255, 0.35); opacity: 0.4; transition: opacity 0.15s, background 0.15s; }
+      .sideplus:hover { opacity: 1; background: rgba(255, 255, 255, 0.95); border-color: #14181f; color: #14181f; }
+      #addmenu { position: fixed; z-index: 12; transform: translate(-50%, 0); display: none;
+        flex-direction: column; min-width: 116px; background: rgba(20, 24, 31, 0.95);
+        backdrop-filter: blur(6px); border-radius: 6px; padding: 4px; gap: 1px;
+        box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3); }
+      #addmenu .menuitem { appearance: none; cursor: pointer; font: inherit; font-size: 11px;
+        letter-spacing: 0.04em; text-align: left; color: #e9edf2; background: transparent;
+        border: 0; border-left: 2px solid transparent; padding: 5px 10px; border-radius: 3px; }
+      #addmenu .menuitem:hover { background: rgba(255, 255, 255, 0.1); }
+      #addmenu .menuitem.fam-asap { border-left-color: #e5661a; }
+      #addmenu .menuitem.fam-x { border-left-color: #3f7fd6; }
+      #addmenu .menuitem.fam-equip { border-left-color: #8a8f98; }
+      #addmenu .menuitem.fam-interior { border-left-color: #2faa57; }
+      #clearBtn { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 10;
+        appearance: none; cursor: pointer; font: inherit; font-size: 11px; letter-spacing: 0.06em;
+        text-transform: uppercase; color: #c9d1dc; background: rgba(20, 24, 31, 0.82);
+        backdrop-filter: blur(6px); border: 0; padding: 9px 18px; border-radius: 999px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2); }
+      #clearBtn:hover { color: #fff; background: rgba(20, 24, 31, 0.95); }
+      #toast { position: fixed; left: 50%; bottom: 58px; transform: translateX(-50%); z-index: 13;
+        pointer-events: none; opacity: 0; transition: opacity 0.2s; font-size: 11px;
+        letter-spacing: 0.05em; color: #fff; background: rgba(192, 57, 43, 0.92);
+        padding: 7px 14px; border-radius: 999px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25); }
+      /* bottom-left toolbar: plan-view + biome toggles */
+      #toolbar { position: fixed; left: 14px; bottom: 16px; z-index: 11; display: flex; gap: 8px; }
+      #toolbar button { appearance: none; cursor: pointer; font: inherit; font-size: 11px;
+        letter-spacing: 0.06em; text-transform: uppercase; color: #c9d1dc;
+        background: rgba(20, 24, 31, 0.82); backdrop-filter: blur(6px); border: 0;
+        padding: 9px 16px; border-radius: 999px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2); }
+      #toolbar button:hover { color: #fff; background: rgba(20, 24, 31, 0.95); }
+      /* curated suggestion bubbles next to the add "+" */
+      .suggest { position: fixed; z-index: 12; transform: translate(-50%, -50%); cursor: pointer;
+        display: none; max-width: 92px; font-size: 10px; line-height: 1.2; letter-spacing: 0.03em;
+        text-align: center; color: #14181f; background: rgba(255, 255, 255, 0.94);
+        border: 1.5px solid #14181f; border-radius: 12px; padding: 4px 8px;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.22); opacity: 0.92; }
+      .suggest:hover { opacity: 1; background: #fff; }
+      .suggest .stag { display: block; font-size: 8px; letter-spacing: 0.08em;
+        text-transform: uppercase; color: #e5661a; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="bill"></div>
+    <div id="inspector"></div>
+    <div id="equipment"></div>
+    <button id="clearBtn">Clear camp</button>
+    <div id="toolbar">
+      <button id="planBtn">Plan view: off</button>
+      <button id="biomeBtn">Biome: Field</button>
+    </div>
+    <div id="hint">click + to add · hover a unit for specs · click to select · drag to orbit</div>
+    <script type="module" src="/src/view/main.ts"></script>
+  </body>
+</html>

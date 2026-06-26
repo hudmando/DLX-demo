@@ -1,0 +1,41 @@
+[
+  { "id": "generator", "name": "Generator", "category": "equipment", "placement": "external",
+    "footprint_ft": [7, 3.5], "height_ft": 4.5, "power_kw": 20, "weight_lb": 1100,
+    "confidence": "estimated" },
+
+  { "id": "hvac-125", "name": "1.25 TON HVAC Unit", "category": "equipment", "placement": "external",
+    "footprint_ft": [4, 2.5], "height_ft": 3, "cooling_tons": 1.25, "weight_lb": 240,
+    "confidence": "estimated" },
+
+  { "id": "hvac-30", "name": "3.0 TON HVAC Unit", "category": "equipment", "placement": "external",
+    "footprint_ft": [6, 3], "height_ft": 4, "cooling_tons": 3.0, "weight_lb": 520,
+    "confidence": "estimated" },
+
+  { "id": "convoy-array", "name": "Convoy Array", "category": "equipment", "placement": "external",
+    "footprint_ft": [10, 5], "height_ft": 5, "power_kw": 60, "weight_lb": 2400,
+    "confidence": "estimated" },
+
+  { "id": "scene-light", "name": "Scene Lighting", "category": "equipment", "placement": "external",
+    "footprint_ft": [3, 3], "height_ft": 15, "weight_lb": 280, "mount": "mast",
+    "confidence": "estimated" },
+
+  { "id": "cot", "name": "Cot", "category": "interior", "placement": "internal",
+    "footprint_ft": [6.25, 2.5], "height_ft": 1.5, "weight_lb": 28,
+    "confidence": "estimated" },
+
+  { "id": "shower-single", "name": "Single Stall Shower", "category": "interior", "placement": "internal",
+    "footprint_ft": [3.5, 3.5], "height_ft": 7, "stalls": 1, "weight_lb": 95,
+    "confidence": "estimated" },
+
+  { "id": "shower-x-single", "name": "X-Series Single Stall Shower", "category": "interior", "placement": "internal",
+    "footprint_ft": [3.5, 3.5], "height_ft": 7.5, "stalls": 1, "weight_lb": 110,
+    "confidence": "estimated" },
+
+  { "id": "modular-stall", "name": "Modular Shelter Stalls", "category": "interior", "placement": "internal",
+    "footprint_ft": [6, 0.5], "height_ft": 6.5, "weight_lb": 35, "mount": "wall",
+    "confidence": "estimated" },
+
+  { "id": "fan-overhead", "name": "3-Speed Overhead Fan", "category": "interior", "placement": "internal",
+    "footprint_ft": [4, 4], "height_ft": 1, "weight_lb": 22, "mount": "ceiling",
+    "confidence": "estimated" }
+]

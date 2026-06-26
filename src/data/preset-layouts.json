@@ -1,0 +1,53 @@
+[
+  {
+    "id": "rapid-triage-cluster",
+    "name": "Rapid Triage Cluster",
+    "units": [
+      { "ref": "h1", "product": "asap-hub", "x": 0,   "y": 0,   "rotation": 0 },
+      { "ref": "s1", "product": "asap-18",  "x": 17,  "y": 0,   "rotation": 0 },
+      { "ref": "s2", "product": "asap-18",  "x": -17, "y": 0,   "rotation": 180 },
+      { "ref": "s3", "product": "asap-18",  "x": 0,   "y": 17,  "rotation": 90 },
+      { "ref": "s4", "product": "asap-12",  "x": 0,   "y": -14, "rotation": 270 }
+    ],
+    "connections": [
+      { "from": "h1", "to": "s1" },
+      { "from": "h1", "to": "s2" },
+      { "from": "h1", "to": "s3" },
+      { "from": "h1", "to": "s4" }
+    ]
+  },
+  {
+    "id": "decon-lane",
+    "name": "Decon Lane",
+    "units": [
+      { "ref": "s1", "product": "asap-18", "x": 0,  "y": 0, "rotation": 0 },
+      { "ref": "s2", "product": "asap-18", "x": 18, "y": 0, "rotation": 0 },
+      { "ref": "s3", "product": "asap-18", "x": 36, "y": 0, "rotation": 0 }
+    ],
+    "connections": [
+      { "from": "s1", "to": "s2" },
+      { "from": "s2", "to": "s3" }
+    ]
+  },
+  {
+    "id": "mixed-field-hospital",
+    "name": "Mixed Field Hospital",
+    "units": [
+      { "ref": "x1",  "product": "x-32",     "x": 0,     "y": 0,   "rotation": 0 },
+      { "ref": "xh1", "product": "x-hub",    "x": 26.75, "y": 0,   "rotation": 0 },
+      { "ref": "x2",  "product": "x-24",     "x": 49.5,  "y": 0,   "rotation": 0 },
+      { "ref": "ah1", "product": "asap-hub", "x": -32,   "y": 0,   "rotation": 0 },
+      { "ref": "a1",  "product": "asap-18",  "x": -49,   "y": 0,   "rotation": 180 },
+      { "ref": "a2",  "product": "asap-18",  "x": -32,   "y": 17,  "rotation": 90 },
+      { "ref": "a3",  "product": "asap-18",  "x": -32,   "y": -17, "rotation": 270 }
+    ],
+    "connections": [
+      { "from": "x1",  "to": "xh1" },
+      { "from": "xh1", "to": "x2" },
+      { "from": "x1",  "to": "ah1" },
+      { "from": "ah1", "to": "a1" },
+      { "from": "ah1", "to": "a2" },
+      { "from": "ah1", "to": "a3" }
+    ]
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "id": "rapid-triage-cluster",
+    "name": "Rapid Triage Cluster",
+    "units": [
+      { "ref": "h1", "product": "asap-hub" },
+      { "ref": "s1", "product": "asap-18" },
+      { "ref": "s2", "product": "asap-18" },
+      { "ref": "s3", "product": "asap-18" },
+      { "ref": "s4", "product": "asap-12" }
+    ],
+    "connections": [
+      { "from": "h1", "to": "s1" },
+      { "from": "h1", "to": "s2" },
+      { "from": "h1", "to": "s3" },
+      { "from": "h1", "to": "s4" }
+    ],
+    "bill_of_connectors": { "asap-hub": 1, "asap-connector": 4 }
+  },
+  {
+    "id": "decon-lane",
+    "name": "Decon Lane",
+    "units": [
+      { "ref": "s1", "product": "asap-18" },
+      { "ref": "s2", "product": "asap-18" },
+      { "ref": "s3", "product": "asap-18" }
+    ],
+    "connections": [
+      { "from": "s1", "to": "s2" },
+      { "from": "s2", "to": "s3" }
+    ],
+    "bill_of_connectors": { "asap-connector": 2 }
+  },
+  {
+    "id": "mixed-field-hospital",
+    "name": "Mixed Field Hospital",
+    "units": [
+      { "ref": "x1", "product": "x-32" },
+      { "ref": "xh1", "product": "x-hub" },
+      { "ref": "x2", "product": "x-24" },
+      { "ref": "ah1", "product": "asap-hub" },
+      { "ref": "a1", "product": "asap-18" },
+      { "ref": "a2", "product": "asap-18" },
+      { "ref": "a3", "product": "asap-18" }
+    ],
+    "connections": [
+      { "from": "x1", "to": "xh1" },
+      { "from": "xh1", "to": "x2" },
+      { "from": "x1", "to": "ah1" },
+      { "from": "ah1", "to": "a1" },
+      { "from": "ah1", "to": "a2" },
+      { "from": "ah1", "to": "a3" }
+    ],
+    "bill_of_connectors": {
+      "x-hub": 1,
+      "asap-hub": 1,
+      "x-connector": 2,
+      "asap-x-connector": 1,
+      "asap-connector": 3
+    }
+  }
+]

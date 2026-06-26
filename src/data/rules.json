@@ -1,0 +1,9 @@
+{
+  "join_model": "gap+spanning-connector",
+  "families": {
+    "asap": { "mating_face_ft": 16, "self_connector": "asap-connector", "direct_join_allowed": false },
+    "x-series": { "mating_face_ft": 21.5, "self_connector": "x-connector", "direct_join_allowed": false }
+  },
+  "cross_family_connector": "asap-x-connector",
+  "hub": { "ports": 4, "accepts_family": ["asap", "x-series"], "standalone": true }
+}

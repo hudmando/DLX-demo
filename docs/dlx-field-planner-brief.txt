@@ -1,0 +1,110 @@
+# DLX Field Planner — Claude Design Brief (v3)
+
+> **v3 reconciliation:** the compatibility facts + matrix below were corrected to match the
+> canonical connection model in `dlx-project-overview.md` §4 (every join is a connector product;
+> the HUB accepts either family on any side; "Shelter Connector" renamed "ASAP-to-X-Series
+> Connector"). Where this brief and §4 still differ on connections, **§4 wins.**
+
+> Paste this into Claude Design as the opening prompt, with the **DLX Spec Sheet** appended below it as the data source. Refine on the canvas, then hand off to Claude Code to build the 3D / interaction logic.
+
+---
+
+## What we're building
+A standalone, interactive web tool that lets users lay out Deployed Logix shelters on a **true-to-scale plane** to understand **size, usability, and — above all — compatibility**: which shelter systems connect to which, and what hardware that takes.
+
+Products are shown as **dimensionally-accurate schematic 3D** — clean geometry scaled to real-world dimensions. Tactical CAD / blueprint look, **not** photoreal renders. (No 3D model files exist, and a planning tool reads better as a schematic anyway.)
+
+The differentiator is not the visualization — it's the **connection-validation engine**. A buyer can roughly imagine size; what they genuinely cannot do today is reason about cross-system connection rules and the parts list. That's where this tool earns its keep.
+
+## Audience
+Emergency managers, military / expeditionary logistics planners, and DLX sales reps. Standalone for now (not embedded in the WordPress site).
+
+## Visual direction
+- Rugged "field planning" aesthetic: dark slate background, measured blueprint grid, high contrast.
+- Accent color: DLX safety-orange / brand red — pull exact hex with Claude Design's **web capture tool** pointed at deployedlogix.com.
+- Technical / monospace labels; dimension callouts styled like an engineering drawing.
+- Units rendered as extruded footprints with crisp edge lines, **color-coded by family**: ASAP, X-Series, HUB/connector.
+
+---
+
+## The build — three layers, in order (each is shippable on its own)
+
+### Layer 1 — Scaled scene + single unit *(foundation)*
+- Ground plane with a measured grid; toggle **ft / m**.
+- Place one shelter (start with ASAP-18) as a true-scale box.
+- Drop in a **6 ft human silhouette** + a standard pickup/pallet for instant scale.
+- Side panel shows live specs: area, weight, height, setup time, operating range.
+- Orbit + zoom camera, plus a **top-down "plan view"** toggle.
+
+### Layer 2 — Base-camp configurator
+- Palette of all shelters (ASAP-12/18/24, X-16/24/32/40) + the three connectors.
+- Drag units onto the plane; they **snap** at mating faces.
+- Live camp readout: total units, total footprint (ft²/m²), total system weight, est. total setup time + crew.
+- Rotate / duplicate / delete units.
+
+### Layer 3 — Connection-validation engine *(the centerpiece)*
+Model the camp as a **graph**: shelters are rooms (each with a mating face), HUBs are **4-port junction nodes**, connectors are the rules about which face fits which port. As the user builds:
+
+1. **Validate every join** — green when faces mate natively, flagged when they don't.
+2. **Auto-suggest the missing part** — butt an X-40 against an ASAP run and the tool says *"these families don't mate directly → insert 1× ASAP-to-X-Series Connector"* rather than silently failing.
+3. **Output a "Bill of Connectors"** — the exact HUBs + adapters needed to physically realize the on-screen layout. This is the money feature; it surfaces the connector SKUs a buyer can't infer from static product pages.
+
+**Core compatibility facts (canonical model in `dlx-project-overview.md` §4):**
+- Every physical join is a **dedicated connector product spanning a small gap**, hook-and-loop attached — *including same-family joins*. There are no free flush butt-joins.
+- ASAP faces (16 ft) join via the **ASAP Connector**; X-Series faces (21.5 ft) via the **X-Series Connector**; an ASAP face to an X-Series face via the **ASAP-to-X-Series Connector** (the 16↔21.5 ft bridge).
+- A **HUB** stands alone or exposes **4 ports, and accepts either family on any side**; each used port consumes the connector for that face pair.
+- **The X-Series is fully compatible with the ASAP®** — cross-family camps are explicitly supported.
+
+**Compatibility matrix the engine enforces** (mirrors overview §4.4 — one connector per join):
+
+| Connecting | Mating faces | Connector required (one per join) |
+|---|---|---|
+| ASAP ↔ ASAP | 16 ↔ 16 ft | **ASAP Connector** ⚠️ assumed — behind the `direct_join_allowed` toggle |
+| X ↔ X | 21.5 ↔ 21.5 ft | **X-Series Connector** ✅ verified |
+| ASAP ↔ X | 16 ↔ 21.5 ft | **ASAP-to-X-Series Connector** ✅ verified (the bridge) |
+| Shelter → HUB port | either family, any side | the connector for that face pair (same-family or ASAP-to-X) |
+
+---
+
+## Data model
+Every product is one JSON object. The full populated array lives in the **DLX Spec Sheet** (paste it after this brief). Shape:
+
+```json
+{
+  "id": "asap-18",
+  "name": "ASAP-18",
+  "family": "asap",
+  "category": "shelter",
+  "footprint_ft": [18, 16],
+  "height_ft": 8,
+  "area_ft2": 288,
+  "weight_lb": 241,
+  "mating_face_ft": 16,
+  "self_connector": "asap-connector",
+  "cross_connector": "asap-x-connector",
+  "setup_personnel": 2,
+  "setup_min_canopy": 1,
+  "setup_min_full": 10,
+  "operating_range_f": [-40, 130],
+  "confidence": "verified"
+}
+```
+
+HUBs add a `ports` field (e.g. `"ports": 4`) and an `accepts_family` field. **The DLX Spec Sheet is authoritative for the exact field shape** (`self_connector` / `cross_connector` / `accepts_family`); the object above is illustrative.
+
+---
+
+## Tech notes (for the Claude Code handoff)
+- **three.js** for schematic 3D — units are scaled primitives, no asset pipeline.
+- Build the snapping/validation in **top-down 2D first** (graph logic is far easier in 2D), then add a 3D perspective toggle of the same scene.
+- Keep **all product data + compatibility rules in the one JSON file** so specs change without touching logic.
+- **No backend** for v1 — fully client-side.
+
+## Out of scope for v1
+Photoreal models, AR, quoting/checkout integration, multi-user editing, power/water/climate sizing (revisit later as a separate overlay — explicitly deferred).
+
+## Open items to confirm with DLX
+1. **X-Series width** — confirmed 21.5 ft on X-32; assumed constant across X-16/24/40 (verify).
+2. **HUB footprints + port face sizes** — not published; estimated in the spec sheet, flagged.
+3. **Which face actually mates** (end vs side) and whether the ASAP-to-X-Series Connector is a fixed-size transition tunnel.
+4. **Per-model weights / setup crew & times** for everything except ASAP-18 and X-32 (the only two fully site-verified) — currently estimated.

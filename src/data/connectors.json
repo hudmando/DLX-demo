@@ -1,0 +1,15 @@
+[
+  { "id": "asap-connector", "name": "ASAP Connector", "category": "connector",
+    "joins": ["asap", "asap"], "render_type": "asap",
+    "signature": "welded V-gutter + floor strip", "confidence": "estimated",
+    "_note": "Product not confirmed by name on DLX site — overview verify-list #1" },
+
+  { "id": "x-connector", "name": "X-Series Connector", "category": "connector",
+    "joins": ["x-series", "x-series"], "render_type": "xseries", "config": ["open", "door"],
+    "signature": "rain fly + trip guard", "confidence": "verified" },
+
+  { "id": "asap-x-connector", "name": "ASAP-to-X-Series Connector", "category": "connector",
+    "aliases": ["shelter-connector"], "joins": ["asap", "x-series"], "render_type": "asap-x",
+    "bridge_faces_ft": [16, 21.5], "signature": "outer awnings absorbing 16<->21.5 mismatch",
+    "attach": "hook-and-loop, no shelter drop / no added framing", "confidence": "verified" }
+]

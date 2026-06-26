@@ -1,0 +1,115 @@
+# DLX Engineering Principles — Baseline Logic Conventions
+
+> **Read before writing the validation engine or any core logic.** This doc governs *how* the
+> code is written — structure, safety, quality. It does **not** define connection rules: those
+> are canonical in `dlx-project-overview.md` §4. Where this doc and the connection model could
+> appear to overlap, §4 owns *what the rules are*; this doc owns *how they are implemented*.
+>
+> **Source of truth for:** code structure, data-trust boundary, the engine contract, the
+> definition of done. Fits the doc map in overview §2 as the engineering-conventions layer.
+
+---
+
+## 0. The three core values (and how each becomes a rule)
+
+| Value | One-line test | Enforced by |
+|---|---|---|
+| **Efficiency** | "Is this fact or rule stated exactly once?" | §1 |
+| **Security** | "Can bad data or a bad scene break or abuse this?" | §2 |
+| **Effectiveness** | "Do the layers stay decoupled and the output stay one shape?" | §3 |
+
+---
+
+## 1. EFFICIENCY — say it once, derive the rest
+
+1. **Data is the only source of truth.** The engine reads families, mating faces, and connector
+   ids from the rules block in overview §4.5 / spec-sheet JSON. **Zero magic numbers** in logic —
+   no `16`, `21.5`, `"asap-x-connector"` literals. If it's a fact, it lives in the JSON.
+2. **Derive, never store.** The Bill of Connectors is computed from the connection graph on every
+   call (presets doc note). Never hand-maintain or cache a bill — let the engine produce it so it
+   always matches the rules.
+3. **One rule, one function.** The selection rule (§4.4) is implemented **once** as a pure
+   `selectConnector(faceA, faceB, rules)`. Everything that needs a connector calls it; nothing
+   re-derives it.
+4. **The toggle is the only knob.** `direct_join_allowed` (§4.5) flips a whole class of bills
+   with **no other code change**. Read that flag inside the single selection function — never
+   branch on it elsewhere.
+5. **Normalize once at load.** Resolve aliases (`shelter-connector` → `asap-x-connector`) and
+   defaults in the loader, so downstream code never handles both spellings or missing fields.
+6. **Pure functions over state.** The engine layer is side-effect-free. Small, composable,
+   tree-shakeable — and trivially testable (§3.5).
+
+## 2. SECURITY — protect against internal breaking and external mischief
+
+**Internal (don't let the code break itself):**
+1. **Validate the catalog on load** against a minimal schema. Required per shelter/hub:
+   `id, family, category, mating_face_ft|port_face_ft`. Reject or quarantine bad records.
+2. **Guard every lookup.** Unknown product id, missing face, or undefined family returns an
+   explicit error result — never a silent `undefined` that propagates into a `NaN` footprint or
+   total. (Mirrors the render workflow's "0 NaN" rule, render §9.)
+3. **Total functions.** The engine returns a typed result for *every* input, valid or not:
+   `{ status: "ok" | "invalid" | "needs-bridge", ... }`. It never throws into the UI.
+
+**External (treat all scene input as untrusted):**
+4. **Untrusted sources:** loaded presets, user drag/drop, serialized/URL scene state, pasted
+   JSON. Validate **before** the engine touches them.
+5. **Data is data.** No `eval`, no `new Function()`, no executing anything that came from a data
+   file or a saved scene.
+6. **Whitelist ids** against the catalog. Anything not in the catalog is ignored, not
+   instantiated.
+7. **Bound the graph.** Connection traversal must terminate: detect cycles, cap node/edge counts,
+   clamp coordinates and counts to sane ranges so a malformed scene can't hang the renderer.
+   (Client-side, no backend per all docs — the data file + serialized scene *are* the trust
+   boundary.)
+
+## 3. EFFECTIVENESS — harmonious and systematic
+
+1. **Layered and decoupled** (brief's 3 layers + overview §1). The engine is **pure graph logic
+   with zero three.js / DOM dependency.** Build and test it in **2D first** (overview §7), add the
+   3D view on top later.
+2. **One canonical model.** The engine reasons exactly as overview §4 dictates. The spec sheet and
+   presets are *inputs*, never a second copy of the logic.
+3. **Nodes vs edges, fixed.** Shelters and HUBs are placed **nodes**; connectors are computed
+   **edges** (presets model). The engine emits edges; it never expects a connector as a placed
+   node. Bill = (HUB nodes) + (connector edges, typed by face pair) — overview §4.4.
+4. **Confidence propagates.** Each record's `confidence` flag rides through to the bill so the UI
+   can mark estimated specs — that visibility *is* the mitigation for the project's central risk
+   (~70% estimated).
+5. **Headless-testable; presets are the regression suite.** Run the engine on stub data and assert
+   each of the three presets produces its documented bill. Re-run on every rule change (and when
+   `direct_join_allowed` flips) — same pattern as render §9.
+6. **One stable output shape.** Define the engine's I/O contract once; the schematic UI and the
+   render workflow both consume it (render §7.7 is the shared topology export).
+
+---
+
+## 4. The engine contract (define once, reuse everywhere)
+
+```
+// Pure, deterministic, DOM-free.
+selectConnector(faceA, faceB, rules) -> connectorId | null
+  // equal mating faces  -> family self_connector  (null if direct_join_allowed)
+  // unequal faces       -> cross_family_connector
+  // single source: overview §4.4 / §4.5
+
+buildBillOfConnectors(scene, catalog, rules) -> {
+  status,                       // "ok" | "invalid"
+  joins:  [ { a, b, connector, facePair, confidence } ],
+  bill:   { <connectorOrHubId>: count },
+  issues: [ { code, ref, message } ]   // bad ids, cycles, unmatched faces
+}
+```
+
+Rules: validate `scene` and `catalog` at the boundary · resolve aliases in the loader · derive
+`bill` from `joins` + HUB nodes · never throw · never emit `NaN`.
+
+---
+
+## 5. Definition of done (a slice is done when…)
+
+- [ ] No magic numbers / hardcoded ids in logic — all from data.
+- [ ] Bill is derived, not stored; flipping `direct_join_allowed` changes output with no code edit.
+- [ ] Engine runs headless (no three.js import) and reproduces all three presets' bills.
+- [ ] Invalid/unknown/malformed input returns a typed result; zero throws, zero NaN.
+- [ ] Graph traversal is bounded and cycle-safe.
+- [ ] `confidence` is present on every join in the output.

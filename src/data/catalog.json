@@ -1,0 +1,51 @@
+[
+  { "id": "asap-12", "name": "ASAP-12", "family": "asap", "category": "shelter",
+    "footprint_ft": [12, 16], "height_ft": 8, "area_ft2": 192, "weight_lb": 161, "cots": 4,
+    "mating_face_ft": 16, "self_connector": "asap-connector", "cross_connector": "asap-x-connector",
+    "setup_personnel": 2, "setup_min_canopy": 1, "setup_min_full": 8,
+    "operating_range_f": [-40, 130], "confidence": "partial" },
+
+  { "id": "asap-18", "name": "ASAP-18", "family": "asap", "category": "shelter",
+    "footprint_ft": [18, 16], "height_ft": 8, "area_ft2": 288, "weight_lb": 241, "cots": 6,
+    "mating_face_ft": 16, "self_connector": "asap-connector", "cross_connector": "asap-x-connector",
+    "setup_personnel": 2, "setup_min_canopy": 1, "setup_min_full": 10,
+    "operating_range_f": [-40, 130], "confidence": "verified" },
+
+  { "id": "asap-24", "name": "ASAP-24", "family": "asap", "category": "shelter",
+    "footprint_ft": [24, 16], "height_ft": 8, "area_ft2": 384, "weight_lb": 321, "cots": 9,
+    "mating_face_ft": 16, "self_connector": "asap-connector", "cross_connector": "asap-x-connector",
+    "setup_personnel": 2, "setup_min_canopy": 1, "setup_min_full": 12,
+    "operating_range_f": [-40, 130], "confidence": "estimated" },
+
+  { "id": "x-16", "name": "X-16", "family": "x-series", "category": "shelter",
+    "footprint_ft": [16, 21.5], "height_ft": 10.25, "area_ft2": 344, "weight_lb": 417, "cots": 8,
+    "mating_face_ft": 21.5, "self_connector": "x-connector", "cross_connector": "asap-x-connector",
+    "setup_personnel": 3, "setup_min_canopy": 10, "setup_min_full": 20,
+    "operating_range_f": [-40, 130], "confidence": "estimated" },
+
+  { "id": "x-24", "name": "X-24", "family": "x-series", "category": "shelter",
+    "footprint_ft": [24, 21.5], "height_ft": 10.25, "area_ft2": 516, "weight_lb": 626, "cots": 12,
+    "mating_face_ft": 21.5, "self_connector": "x-connector", "cross_connector": "asap-x-connector",
+    "setup_personnel": 4, "setup_min_canopy": 12, "setup_min_full": 25,
+    "operating_range_f": [-40, 130], "confidence": "estimated" },
+
+  { "id": "x-32", "name": "X-32", "family": "x-series", "category": "shelter",
+    "footprint_ft": [32, 21.5], "height_ft": 10.25, "area_ft2": 688, "weight_lb": 834, "cots": 16,
+    "mating_face_ft": 21.5, "self_connector": "x-connector", "cross_connector": "asap-x-connector",
+    "setup_personnel": 5, "setup_min_canopy": 15, "setup_min_full": 30,
+    "operating_range_f": [-40, 130], "confidence": "verified" },
+
+  { "id": "x-40", "name": "X-40", "family": "x-series", "category": "shelter",
+    "footprint_ft": [40, 21.5], "height_ft": 10.25, "area_ft2": 860, "weight_lb": 1043, "cots": 20,
+    "mating_face_ft": 21.5, "self_connector": "x-connector", "cross_connector": "asap-x-connector",
+    "setup_personnel": 5, "setup_min_canopy": 18, "setup_min_full": 35,
+    "operating_range_f": [-40, 130], "confidence": "estimated" },
+
+  { "id": "asap-hub", "name": "ASAP-HUB", "family": "asap", "category": "hub",
+    "footprint_ft": [16, 16], "height_ft": 8, "ports": 4, "port_face_ft": 16,
+    "accepts_family": ["asap", "x-series"], "standalone": true, "confidence": "partial" },
+
+  { "id": "x-hub", "name": "X-HUB", "family": "x-series", "category": "hub",
+    "footprint_ft": [21.5, 21.5], "height_ft": 10.25, "ports": 4, "port_face_ft": 21.5,
+    "accepts_family": ["asap", "x-series"], "standalone": true, "confidence": "partial" }
+]

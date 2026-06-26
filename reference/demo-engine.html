@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>DLX Field Planner — connector engine</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#eef1f4;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;}
+  #app{position:fixed;inset:0;} canvas{display:block;}
+  #hint{position:fixed;right:14px;bottom:66px;z-index:10;font-size:10px;
+    letter-spacing:0.05em;color:#9aa3b0;opacity:0.7;pointer-events:none;}
+  #bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:10;display:flex;gap:8px;}
+  #bar button{appearance:none;border:0;cursor:pointer;font:inherit;font-size:12px;letter-spacing:0.06em;
+    text-transform:uppercase;color:#e9edf2;background:rgba(20,24,31,0.82);backdrop-filter:blur(6px);
+    padding:11px 18px;border-radius:999px;box-shadow:0 4px 18px rgba(0,0,0,0.2);transition:background .18s,color .18s;}
+  #bar button.on{background:#e5661a;color:#fff;}
+  #bar #clr{color:#c9d1dc;}
+  #bill{position:fixed;left:14px;top:14px;z-index:10;font-size:10px;line-height:1.7;letter-spacing:0.05em;
+    color:#3a4150;background:rgba(255,255,255,0.74);backdrop-filter:blur(4px);border-left:2px solid #e5661a;
+    padding:8px 12px;border-radius:3px;opacity:0;transition:opacity .4s;pointer-events:none;}
+  #bill b{color:#1c2230;font-weight:600;}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="bill"></div>
+<div id="hint">drag to orbit · pinch / scroll to zoom</div>
+<div id="bar">
+  <button id="addAsap">+ ASAP</button>
+  <button id="addX">+ X-Series</button>
+  <button id="clr">Clear</button>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ===================== CONNECTION RULES (mirrors overview §4.5) ===================== */
+const RULES={
+  families:{
+    'asap':    {mating_face_ft:16,   self_connector:'asap-connector', direct_join_allowed:false},
+    'x-series':{mating_face_ft:21.5, self_connector:'x-connector',    direct_join_allowed:false}
+  },
+  cross_family_connector:'asap-x-connector'
+};
+// one rule, one function (engineering-principles §1.3 / §4)
+function selectConnector(famA,famB){
+  const a=RULES.families[famA], b=RULES.families[famB];
+  if(a.mating_face_ft===b.mating_face_ft) return a.direct_join_allowed?null:a.self_connector;
+  return RULES.cross_family_connector;
+}
+const CONN_NAME={'asap-connector':'ASAP Connector','x-connector':'X-Series Connector','asap-x-connector':'ASAP-to-X-Series Connector'};
+
+/* ===================== STUDIO ===================== */
+const container=document.getElementById('app');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.AgXToneMapping ?? THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+container.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+(function(){const c=document.createElement('canvas');c.width=8;c.height=256;const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,'#f6f7f9');g.addColorStop(1,'#eceef1');
+  x.fillStyle=g;x.fillRect(0,0,8,256);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;scene.background=t;})();
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+scene.add(new THREE.HemisphereLight(0xbcd2ec,0xb6a47a,0.55));
+const sun=new THREE.DirectionalLight(0xfff0d8,2.7);
+sun.position.set(48,50,30); sun.target.position.set(0,3,0); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); sun.shadow.radius=3; sun.shadow.bias=-0.0003; sun.shadow.normalBias=0.02;
+Object.assign(sun.shadow.camera,{near:1,far:420,left:-140,right:140,top:140,bottom:-140}); scene.add(sun,sun.target);
+const fill=new THREE.DirectionalLight(0xcdd9ec,0.4); fill.position.set(-30,22,-26); scene.add(fill);
+
+const camera=new THREE.PerspectiveCamera(35,innerWidth/innerHeight,0.1,3000);
+camera.position.set(2,24,56);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,3.5,0); controls.enableDamping=true; controls.dampingFactor=0.06;
+controls.minDistance=18; controls.maxDistance=400; controls.maxPolarAngle=Math.PI*0.49; controls.update();
+
+/* ===================== MATERIALS ===================== */
+function fabricAlbedo(base){const N=512,c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d');
+  x.fillStyle=base;x.fillRect(0,0,N,N);
+  for(let i=0;i<200;i++){const r=18+Math.random()*70,a=0.025+Math.random()*0.045;
+    x.fillStyle=`rgba(${150+Math.random()*55|0},${122+Math.random()*42|0},${74+Math.random()*38|0},${a})`;
+    x.beginPath();x.arc(Math.random()*N,Math.random()*N,r,0,7);x.fill();}
+  x.globalAlpha=0.05;x.strokeStyle='#86713f';
+  for(let i=0;i<N;i+=3){x.beginPath();x.moveTo(0,i);x.lineTo(N,i);x.stroke();x.beginPath();x.moveTo(i,0);x.lineTo(i,N);x.stroke();}
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(3,3);return t;}
+function fabricBump(){const N=512,c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d');
+  x.fillStyle='#808080';x.fillRect(0,0,N,N);x.strokeStyle='#9a9a9a';
+  for(let i=0;i<N;i+=4){x.beginPath();x.moveTo(0,i);x.lineTo(N,i);x.stroke();}
+  x.strokeStyle='#666';for(let i=2;i<N;i+=4){x.beginPath();x.moveTo(i,0);x.lineTo(i,N);x.stroke();}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(3,3);return t;}
+const BMP=fabricBump();
+const MAT={
+  roof:new THREE.MeshPhysicalMaterial({map:fabricAlbedo('#cdb88f'),bumpMap:BMP,bumpScale:0.05,roughness:0.95,sheen:0.2,sheenRoughness:0.85,envMapIntensity:0.45,side:THREE.DoubleSide}),
+  wall:new THREE.MeshPhysicalMaterial({map:fabricAlbedo('#a3855a'),bumpMap:BMP,bumpScale:0.05,roughness:0.95,sheen:0.18,sheenRoughness:0.85,envMapIntensity:0.45,side:THREE.DoubleSide}),
+  conn:new THREE.MeshPhysicalMaterial({color:0x1b1b1d,roughness:0.82,sheen:0.25,sheenRoughness:0.7,envMapIntensity:0.5,side:THREE.DoubleSide}),
+  seam:new THREE.MeshStandardMaterial({color:0x84693c,roughness:0.92}),
+  screen:new THREE.MeshStandardMaterial({color:0x070708,roughness:0.62,envMapIntensity:0.1,side:THREE.DoubleSide}),
+  doorway:new THREE.MeshStandardMaterial({color:0x121315,roughness:0.7,side:THREE.DoubleSide}),
+  ballast:new THREE.MeshPhysicalMaterial({color:0xe5661a,roughness:0.5,clearcoat:0.25,clearcoatRoughness:0.4,envMapIntensity:0.7}),
+  strap:new THREE.MeshStandardMaterial({color:0xea6e1f,roughness:0.7}),
+  guard:new THREE.MeshStandardMaterial({color:0x161618,roughness:0.9}),
+  clay:new THREE.MeshStandardMaterial({color:0xf2f2f2,roughness:0.96,metalness:0.0})
+};
+const PENCIL=new THREE.LineBasicMaterial({color:0x5a6478});
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+function strip(a,b,r,mat){const d=new THREE.Vector3().subVectors(b,a),len=d.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,8),mat);
+  m.position.copy(a).addScaledVector(d,0.5);m.quaternion.setFromUnitVectors(V(0,1,0),d.clone().normalize());
+  m.castShadow=m.receiveShadow=true;return m;}
+function sweptStrip(pts,L,ridge,mat,sagAmp=0.16){
+  const cd=[0];for(let p=1;p<pts.length;p++)cd[p]=cd[p-1]+Math.hypot(pts[p][0]-pts[p-1][0],pts[p][1]-pts[p-1][1]);
+  const NZ=Math.max(2,Math.round(L*1.2)),P=pts.length,verts=[],uvs=[],idx=[];
+  for(let s=0;s<NZ;s++){const t=s/(NZ-1),z=-L/2+t*L,sg=-sagAmp*Math.sin(Math.PI*t);
+    for(let p=0;p<P;p++){const y=pts[p][1];verts.push(pts[p][0],y+sg*(y/ridge),z);uvs.push(z,cd[p]);}}
+  for(let s=0;s<NZ-1;s++)for(let p=0;p<P-1;p++){const a=s*P+p,b=s*P+p+1,c=(s+1)*P+p+1,d=(s+1)*P+p;idx.push(a,b,c,a,c,d);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(idx);g.computeVertexNormals();
+  const m=new THREE.Mesh(g,mat);m.castShadow=m.receiveShadow=true;return m;}
+// loft between two equal-length profiles (A at -z end, B at +z end) — the cross-family taper
+function loftStrip(A,B,L,mat){
+  const P=A.length,NZ=Math.max(2,Math.round(L*3)),verts=[],idx=[];
+  for(let s=0;s<NZ;s++){const t=s/(NZ-1),z=-L/2+t*L;
+    for(let p=0;p<P;p++){verts.push(THREE.MathUtils.lerp(A[p][0],B[p][0],t),THREE.MathUtils.lerp(A[p][1],B[p][1],t),z);}}
+  for(let s=0;s<NZ-1;s++)for(let p=0;p<P-1;p++){const a=s*P+p,b=s*P+p+1,c=(s+1)*P+p+1,d=(s+1)*P+p;idx.push(a,b,c,a,c,d);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));g.setIndex(idx);g.computeVertexNormals();
+  const m=new THREE.Mesh(g,mat);m.castShadow=m.receiveShadow=true;return m;}
+
+/* ===================== SHELTER (parametric — ASAP or X) ===================== */
+function buildShelter({W,L,eave,ridge}){
+  const hw=W/2,g=new THREE.Group(),dH=Math.min(6.8,ridge-0.6);
+  g.add(sweptStrip([[-hw,eave],[0,ridge],[hw,eave]],L,ridge,MAT.roof));
+  g.add(sweptStrip([[-hw,0],[-hw,eave]],L,ridge,MAT.wall));
+  g.add(sweptStrip([[ hw,0],[ hw,eave]],L,ridge,MAT.wall));
+  function end(z){
+    const sh=new THREE.Shape();
+    sh.moveTo(-hw,0);sh.lineTo(hw,0);sh.lineTo(hw,eave);sh.lineTo(0,ridge);sh.lineTo(-hw,eave);sh.closePath();
+    const ho=new THREE.Path();ho.moveTo(-1.75,0);ho.lineTo(1.75,0);ho.lineTo(1.75,dH);ho.lineTo(-1.75,dH);ho.closePath();sh.holes.push(ho);
+    const m=new THREE.Mesh(new THREE.ShapeGeometry(sh),MAT.wall);m.position.z=z;m.castShadow=m.receiveShadow=true;g.add(m);
+    const dk=new THREE.Mesh(new THREE.PlaneGeometry(3.5,dH),MAT.doorway);dk.position.set(0,dH/2,z+(z>0?0.04:-0.04));if(z<0)dk.rotation.y=Math.PI;g.add(dk);
+  }
+  end(-L/2);end(L/2);
+  const bays=Math.max(3,Math.round(L/6)),z0=-L/2+1.5,span=L-3;
+  for(let i=0;i<bays;i++){const z=z0+span*(i+0.5)/bays;for(const sx of [-1,1]){
+    const sc=new THREE.Mesh(new THREE.PlaneGeometry(2.4,2.2),MAT.screen);
+    sc.position.set(sx*(hw+0.04),Math.min(3.0,eave-0.6),z);sc.rotation.y=sx>0?Math.PI/2:-Math.PI/2;g.add(sc);}}
+  g.add(strip(V(0,ridge,-L/2),V(0,ridge,L/2),0.07,MAT.seam));
+  for(const sx of [-1,1]) g.add(strip(V(sx*hw,eave,-L/2),V(sx*hw,eave,L/2),0.07,MAT.seam));
+  for(const z of [-L/2+2.3,0,L/2-2.3]) for(const sx of [-1,1]){
+    const b=new THREE.Mesh(new THREE.BoxGeometry(2.56,1.12,1.64),MAT.ballast);
+    b.position.set(sx*(hw+0.7),0.56,z);b.castShadow=b.receiveShadow=true;g.add(b);
+    g.add(strip(V(sx*hw,eave,z),V(sx*(hw+0.7),1.12,z),0.05,MAT.strap));}
+  return g;
+}
+const ASAP={W:16,L:18,eave:5,ridge:8};
+const XSER={W:21.5,L:32,eave:6.5,ridge:10.25};   // X-32 (verified dims)
+
+/* ===================== CONNECTORS — chosen by the rule ===================== */
+function connTunnel(len){ // same-family ASAP tunnel: V-gutter + floor guard
+  const W=16,eave=4.8,ridge=7.4,hw=W/2,g=new THREE.Group();
+  g.add(sweptStrip([[-hw,eave],[0,ridge],[hw,eave]],len,ridge,MAT.conn,0));
+  g.add(sweptStrip([[-hw,0],[-hw,eave]],len,ridge,MAT.conn,0));
+  g.add(sweptStrip([[ hw,0],[ hw,eave]],len,ridge,MAT.conn,0));
+  const gut=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.3,len),MAT.conn);gut.position.set(0,ridge+0.12,0);gut.rotation.z=Math.PI/4;gut.castShadow=true;g.add(gut);
+  const fl=new THREE.Mesh(new THREE.BoxGeometry(4,0.26,len),MAT.guard);fl.position.set(0,0.13,0);fl.receiveShadow=true;g.add(fl);
+  return g;}
+function crossTunnel(len){ // ASAP(16) -> X(21.5) lofted bridge absorbing the mismatch
+  const aR=[[-8,5],[0,8],[8,5]], xR=[[-10.75,6.5],[0,10.25],[10.75,6.5]];
+  const aL=[[-8,0],[-8,5]],       xL=[[-10.75,0],[-10.75,6.5]];
+  const aRt=[[8,0],[8,5]],        xRt=[[10.75,0],[10.75,6.5]];
+  const g=new THREE.Group();                       // A (-z) = X end, B (+z) = ASAP end
+  g.add(loftStrip(xR,aR,len,MAT.conn));
+  g.add(loftStrip(xL,aL,len,MAT.conn));
+  g.add(loftStrip(xRt,aRt,len,MAT.conn));
+  const fl=new THREE.Mesh(new THREE.BoxGeometry(5,0.26,len),MAT.guard);fl.position.set(0,0.13,0);fl.receiveShadow=true;g.add(fl);
+  return g;}
+function connectorFor(famA,famB,len){
+  const id=selectConnector(famA,famB);
+  if(id==='asap-connector') return connTunnel(len);
+  if(id==='asap-x-connector') return crossTunnel(len);
+  return connTunnel(len);
+}
+
+/* ===================== CLAY SCALE ITEMS ===================== */
+const clay=(geo)=>{const m=new THREE.Mesh(geo,MAT.clay);m.castShadow=m.receiveShadow=true;
+  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo,18),PENCIL));return m;};
+function buildMan(){const g=new THREE.Group();
+  const leg=clay(new THREE.CylinderGeometry(0.42,0.36,3.0,16));leg.position.set(-0.45,1.5,0);g.add(leg);
+  const leg2=leg.clone();leg2.position.x=0.45;g.add(leg2);
+  const torso=clay(new THREE.CylinderGeometry(0.72,0.62,2.1,18));torso.position.set(0,3.95,0);g.add(torso);
+  const armL=clay(new THREE.CylinderGeometry(0.22,0.2,2.2,12));armL.position.set(-0.92,3.9,0);armL.rotation.z=0.12;g.add(armL);
+  const armR=armL.clone();armR.position.x=0.92;armR.rotation.z=-0.12;g.add(armR);
+  const neck=clay(new THREE.CylinderGeometry(0.22,0.24,0.4,12));neck.position.set(0,5.2,0);g.add(neck);
+  const head=clay(new THREE.SphereGeometry(0.52,20,16));head.position.set(0,5.75,0);g.add(head);return g;}
+function buildPickup(){const g=new THREE.Group();const L=19.5,Wd=6.7;
+  const body=clay(new THREE.BoxGeometry(L,2.1,Wd));body.position.set(0,2.55,0);g.add(body);
+  const bed=clay(new THREE.BoxGeometry(8.2,1.5,Wd-0.2));bed.position.set(-5.0,4.25,0);g.add(bed);
+  const cab=clay(new THREE.BoxGeometry(6.4,2.5,Wd-0.3));cab.position.set(2.6,4.85,0);g.add(cab);
+  const hood=clay(new THREE.BoxGeometry(5.0,1.1,Wd-0.2));hood.position.set(7.3,4.15,0);g.add(hood);
+  const wg=new THREE.CylinderGeometry(1.15,1.15,0.85,22);
+  [[6.0,1],[6.0,-1],[-5.6,1],[-5.6,-1]].forEach(([wx,sd])=>{const w=clay(wg.clone());w.rotation.x=Math.PI/2;w.position.set(wx,1.15,sd*(Wd/2-0.1));g.add(w);});return g;}
+function buildTrailer(){const g=new THREE.Group();const box=clay(new THREE.BoxGeometry(40,8.5,8));box.position.set(0,8.5/2,0);g.add(box);return g;}
+
+/* ===================== COMPOSE ===================== */
+const TH=-0.35;
+const hero=new THREE.Group(); hero.rotation.y=TH; scene.add(hero);
+hero.add(buildShelter(ASAP));                                    // anchor ASAP-18 (family: asap)
+
+// +z join group: ASAP-2 via asap-connector
+const asapJoin=new THREE.Group(); asapJoin.visible=false; asapJoin.userData.depth=9; asapJoin.position.y=-9; hero.add(asapJoin);
+{ const c=connectorFor('asap','asap',3.4); c.position.z=10.5; asapJoin.add(c);
+  const u=buildShelter(ASAP); u.position.z=21; asapJoin.add(u); }
+
+// -z join group: X-32 via asap-x-connector
+const xJoin=new THREE.Group(); xJoin.visible=false; xJoin.userData.depth=12; xJoin.position.y=-12; hero.add(xJoin);
+{ const c=connectorFor('asap','x-series',4); c.position.z=-11; xJoin.add(c);
+  const u=buildShelter(XSER); u.position.z=-13-XSER.L/2; xJoin.add(u); }
+
+const man=buildMan(), truck=buildPickup(), trailer=buildTrailer(); scene.add(man,truck,trailer);
+const manBase=V(12,0,7), truckBase=V(44,0,26), trailerBase=V(0,0,-64);
+man.position.copy(manBase); man.rotation.y=-1.6;
+truck.position.copy(truckBase); truck.rotation.y=-0.7;
+trailer.position.copy(trailerBase); trailer.rotation.y=0.32;
+
+/* ground + grid */
+(function(){const c=document.createElement('canvas');c.width=c.height=512;const ctx=c.getContext('2d');
+  const g=ctx.createRadialGradient(256,256,40,256,256,360);g.addColorStop(0,'#f4f4f4');g.addColorStop(1,'#f1f1f1');
+  ctx.fillStyle=g;ctx.fillRect(0,0,512,512);const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(640,640),new THREE.MeshStandardMaterial({map:tex,roughness:0.99}));
+  ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);})();
+const gMinor=new THREE.GridHelper(360,360,0xe1e6ec,0xe1e6ec);gMinor.position.y=0.03;
+const gMajor=new THREE.GridHelper(360,72,0xb7c0cd,0xb7c0cd);gMajor.position.y=0.04;
+scene.add(gMinor,gMajor);
+
+/* ===================== STATE · ENGINE OUTPUT · ANIMATION ===================== */
+const bill=document.getElementById('bill');
+const state={asap:false,x:false};
+const ease=u=>u<0.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
+
+// derive the Bill of Connectors from active joins via the rule (never stored)
+function updateBill(){
+  const joins=[];
+  if(state.asap) joins.push(selectConnector('asap','asap'));
+  if(state.x)    joins.push(selectConnector('asap','x-series'));
+  const counts={}; joins.forEach(c=>{if(c)counts[c]=(counts[c]||0)+1;});
+  const lines=Object.entries(counts).map(([k,v])=>`${v} × ${CONN_NAME[k]||k}`);
+  const units=1+(state.asap?1:0)+(state.x?1:0);
+  if(lines.length){ bill.innerHTML='<b>BILL OF CONNECTORS</b><br>'+lines.join('<br>')+`<br><span style="color:#7a8290">${units} shelters</span>`; bill.style.opacity='1'; }
+  else bill.style.opacity='0';
+}
+
+function desiredFrame(){
+  let min=-9,max=9;
+  if(state.asap) max=30;
+  if(state.x)    min=-13-XSER.L;          // X-32 far end
+  const cz=(min+max)/2, ext=max-min;
+  return { center:V(cz*Math.sin(TH),3.5,cz*Math.cos(TH)),
+           dist:THREE.MathUtils.clamp(ext*1.95,58,190),
+           spread:THREE.MathUtils.clamp(ext/18,1,2.6) };
+}
+
+let camA=null; const riseA={asap:null,x:null};
+function reframe(){
+  const f=desiredFrame();
+  camA={u:0,dur:0.9, viewDir:camera.position.clone().sub(controls.target).normalize(),
+    tA:controls.target.clone(), tB:f.center,
+    dA:camera.position.distanceTo(controls.target), dB:f.dist,
+    bg:[[man,man.position.clone(),manBase.clone().multiplyScalar(f.spread)],
+        [truck,truck.position.clone(),truckBase.clone().multiplyScalar(f.spread)],
+        [trailer,trailer.position.clone(),trailerBase.clone().multiplyScalar(f.spread)]]};
+}
+function setUnit(key,on){
+  if(state[key]===on) return;
+  state[key]=on;
+  const grp=key==='asap'?asapJoin:xJoin, depth=grp.userData.depth;
+  grp.visible=true;
+  riseA[key]={u:0,dur:0.85, from:grp.position.y, to:on?0:-depth, grp, hide:!on};
+  document.getElementById(key==='asap'?'addAsap':'addX').classList.toggle('on',on);
+  updateBill(); reframe();
+}
+document.getElementById('addAsap').onclick=()=>setUnit('asap',!state.asap);
+document.getElementById('addX').onclick=()=>setUnit('x',!state.x);
+document.getElementById('clr').onclick=()=>{ setUnit('asap',false); setUnit('x',false); };
+
+const clock=new THREE.Clock();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+renderer.setAnimationLoop(()=>{
+  const dt=clock.getDelta();
+  if(camA){ camA.u=Math.min(1,camA.u+dt/camA.dur); const e=ease(camA.u);
+    controls.target.copy(camA.tA).lerp(camA.tB,e);
+    camera.position.copy(controls.target).addScaledVector(camA.viewDir,THREE.MathUtils.lerp(camA.dA,camA.dB,e));
+    camA.bg.forEach(([o,a,b])=>o.position.copy(a).lerp(b,e));
+    if(camA.u>=1) camA=null; }
+  for(const key of ['asap','x']){ const a=riseA[key]; if(a){ a.u=Math.min(1,a.u+dt/a.dur);
+    a.grp.position.y=THREE.MathUtils.lerp(a.from,a.to,ease(a.u));
+    if(a.u>=1){ if(a.hide)a.grp.visible=false; riseA[key]=null; } } }
+  controls.update(); renderer.render(scene,camera);
+});
+</script>
+</body>
+</html>
